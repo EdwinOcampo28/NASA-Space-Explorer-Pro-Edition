@@ -2,38 +2,41 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Explorador Espacial NASA Pro</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="assets/css/styles.css">
+    <title>NASA Space Explorer | Pro Edition</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<header class="header">
-    <h1>🚀 Explorador Espacial NASA Pro</h1>
-</header>
+<nav>
+  <h1>NASA Explorer</h1>
+  <button class="btn btn-primary" onclick="showFavorites()">⭐ Favoritos</button>
+</nav>
 
-<main class="container">
+<section class="hero">
+  <h2>Descubre el Cosmos</h2>
+  <p>Explora la Imagen Astronómica del Día (APOD)</p>
+</section>
 
-    <section class="card">
-        <h2>Imagen Astronómica del Día</h2>
-        <input type="date" id="apod-date">
-        <button id="load-apod">Cargar Imagen</button>
-        <div id="apod-result"></div>
-    </section>
+<div class="controls">
+  <input type="date" id="start">
+  <input type="date" id="end">
+  <button class="btn btn-primary" onclick="loadRange()">🔍 Buscar Rango</button>
+  <button class="btn btn-primary" style="background:#334155; color:white;" onclick="loadToday()">📅 Hoy</button>
+</div>
 
-    <section class="card">
-        <h2>Buscar Imágenes Espaciales</h2>
-        <input type="text" id="search-input" placeholder="Buscar galaxias, Marte, nebulosas...">
-        <button id="search-btn">Buscar</button>
-        <div id="search-results" class="grid"></div>
-    </section>
+<div id="statusContainer"></div>
+<div class="gallery" id="gallery"></div>
 
-</main>
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <button class="close-btn" onclick="closeModal()">✕</button>
+    <div id="modalBody" class="modal-body"></div>
+  </div>
+</div>
 
-<script src="assets/js/api.js"></script>
-<script src="assets/js/ui.js"></script>
-<script src="assets/js/favorites.js"></script>
-<script src="assets/js/main.js"></script>
+<div class="toast" id="toast"></div>
 
+<script src="app.js"></script>
 </body>
 </html>
