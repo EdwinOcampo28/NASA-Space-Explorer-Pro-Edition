@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Explorador Espacial NASA Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+
+<header class="header">
+    <h1>🚀 Explorador Espacial NASA Pro</h1>
+</header>
+
+<main class="container">
+
+    <section class="card">
+        <h2>Imagen Astronómica del Día</h2>
+        <input type="date" id="apod-date">
+        <button id="load-apod">Cargar Imagen</button>
+        <div id="apod-result"></div>
+    </section>
+
+    <section class="card">
+        <h2>Buscar Imágenes Espaciales</h2>
+        <input type="text" id="search-input" placeholder="Buscar galaxias, Marte, nebulosas...">
+        <button id="search-btn">Buscar</button>
+        <div id="search-results" class="grid"></div>
+    </section>
+
+</main>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/favorites.js"></script>
+<script src="assets/js/main.js"></script>
+
+</body>
+</html>
