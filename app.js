@@ -1,29 +1,37 @@
 /**
  * CONFIGURACIÓN Y ESTADO
  */
-const API_KEY = "API KEY";
+const API_KEY = "API KEY"; // Reemplaza con tu API real
 const BASE_URL = "https://api.nasa.gov/planetary/apod";
+
 const gallery = document.getElementById("gallery");
 const statusContainer = document.getElementById("statusContainer");
+const modal = document.getElementById("modal");
+const modalBody = document.getElementById("modalBody");
 
-// Restringir fecha máxima a hoy
+// Fecha máxima = hoy
 const todayStr = new Date().toISOString().split("T")[0];
 document.getElementById("start").max = todayStr;
 document.getElementById("end").max = todayStr;
 
 /**
- * SERVICIOS (LÓGICA DE DATOS)
+ * SERVICIOS
  */
 async function apiCall(params = "") {
     showLoading(true);
     try {
         const response = await fetch(`${BASE_URL}?api_key=${API_KEY}${params}`);
-        if (!response.ok) throw new Error("Error en la respuesta de la NASA");
+
+        if (!response.ok) {
+            throw new Error("Error en la respuesta de la NASA");
+        }
+
         const data = await response.json();
         return Array.isArray(data) ? data : [data];
+
     } catch (error) {
-        showToast("🚀 Error de conexión");
-        console.error(error);
+        showToast("🚀 Error de conexión con la NASA");
+        console.error("NASA API Error:", error);
         return [];
     } finally {
         showLoading(false);
@@ -41,16 +49,26 @@ function showToast(msg) {
 }
 
 function showLoading(isLoading) {
-    statusContainer.innerHTML = isLoading ? '<div class="loader">Sincronizando con satélites...</div>' : '';
+    statusContainer.innerHTML = isLoading
+        ? '<div class="loader">Sincronizando con satélites...</div>'
+        : "";
 }
 
+/**
+ * RENDER
+ */
 function renderGallery(items) {
     gallery.innerHTML = "";
-    if (items.length === 0) {
-        gallery.innerHTML = "<p style='text-align:center; grid-column: 1/-1;'>No se encontraron imágenes en este sector.</p>";
+
+    if (!items || items.length === 0) {
+        gallery.innerHTML =
+            "<p style='text-align:center; grid-column: 1/-1;'>No se encontraron imágenes en este sector.</p>";
         return;
     }
-    items.filter(item => item.media_type === "image").forEach(createCard);
+
+    items
+        .filter(item => item.media_type === "image")
+        .forEach(createCard);
 }
 
 /**
@@ -59,6 +77,7 @@ function renderGallery(items) {
 function createCard(data) {
     const card = document.createElement("div");
     card.className = "card";
+
     card.innerHTML = `
         <div class="card-img-container">
             <img src="${data.url}" alt="${data.title}" loading="lazy">
@@ -68,40 +87,59 @@ function createCard(data) {
             <h3>${data.title}</h3>
         </div>
     `;
-    card.onclick = () => openModal(data);
+
+    card.addEventListener("click", () => openModal(data));
     gallery.appendChild(card);
 }
 
 function openModal(data) {
     const isFavorite = checkIfFavorite(data.date);
-    document.getElementById("modalBody").innerHTML = `
+    const imageUrl = data.hdurl || data.url;
+
+    modalBody.innerHTML = `
         <small style="color:var(--primary)">${data.date}</small>
         <h2 style="margin:10px 0">${data.title}</h2>
-        <img src="${data.hdurl || data.url}">
-        <p style="line-height:1.6; color:#cbd5e1; margin-bottom:20px">${data.explanation}</p>
-        
-        <div style="display:flex; gap:10px">
-            <button class="btn" style="background:${isFavorite ? '#ef4444':'#22c55e'}; color:white" 
-                onclick='toggleFavorite(${JSON.stringify(data).replace(/'/g, "&apos;")})'>
+        <img src="${imageUrl}" alt="${data.title}">
+        <p style="line-height:1.6; color:#cbd5e1; margin-bottom:20px">
+            ${data.explanation}
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+            <button id="favBtn" class="btn" 
+                style="background:${isFavorite ? '#ef4444':'#22c55e'}; color:white">
                 ${isFavorite ? '🗑️ Eliminar de Favoritos' : '❤️ Guardar en Favoritos'}
             </button>
-            <a href="${data.hdurl || data.url}" target="_blank" class="btn" style="background:#334155; color:white; text-decoration:none">
+            <a href="${imageUrl}" target="_blank" 
+                class="btn" 
+                style="background:#334155; color:white; text-decoration:none">
                 📥 Descargar HD
             </a>
         </div>
     `;
-    document.getElementById("modal").classList.add("active");
+
+    document.getElementById("favBtn")
+        .addEventListener("click", () => toggleFavorite(data));
+
+    modal.classList.add("active");
 }
 
 function closeModal() {
-    document.getElementById("modal").classList.remove("active");
+    modal.classList.remove("active");
 }
 
+// Cerrar al hacer click fuera
+modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+});
+
 /**
- * GESTIÓN DE FAVORITOS (LOCALSTORAGE)
+ * FAVORITOS
  */
 function getFavorites() {
-    return JSON.parse(localStorage.getItem("nasa_favs")) || [];
+    try {
+        return JSON.parse(localStorage.getItem("nasa_favs")) || [];
+    } catch {
+        return [];
+    }
 }
 
 function checkIfFavorite(date) {
@@ -122,18 +160,19 @@ function toggleFavorite(data) {
 
     localStorage.setItem("nasa_favs", JSON.stringify(favs));
     closeModal();
-    // Si estábamos viendo favoritos, refrescar la vista
-    if (gallery.dataset.view === "favorites") showFavorites();
+
+    if (gallery.dataset.view === "favorites") {
+        renderGallery(getFavorites());
+    }
 }
 
 function showFavorites() {
     gallery.dataset.view = "favorites";
-    const favs = getFavorites();
-    renderGallery(favs);
+    renderGallery(getFavorites());
 }
 
 /**
- * ACCIONES PRINCIPALES
+ * ACCIONES
  */
 async function loadToday() {
     gallery.dataset.view = "all";
@@ -144,14 +183,125 @@ async function loadToday() {
 async function loadRange() {
     const start = document.getElementById("start").value;
     const end = document.getElementById("end").value;
-    
-    if (!start || !end) return showToast("Faltan fechas");
-    if (start > end) return showToast("Fecha inicio mayor a fin");
+
+    if (!start || !end) {
+        return showToast("Faltan fechas");
+    }
+
+    if (start > end) {
+        return showToast("Fecha inicio mayor que fin");
+    }
 
     gallery.dataset.view = "all";
+
     const data = await apiCall(`&start_date=${start}&end_date=${end}`);
     renderGallery(data.reverse());
 }
 
-// Carga inicial
+/**
+ * INIT
+ */
 loadToday();
+
+const result = document.getElementById("results");
+const loader = document.getElementById("loader");
+const pageInfo = document.getElementById("pageInfo");
+const nameInput = document.getElementById("name");
+const statusSelect = document.getElementById("status");
+const speciesSelect = document.getElementById("species");
+const searchBtn = document.getElementById("searchBtn");
+const clearBtn = document.getElementById("clearBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+let currentPage = 1;
+let totalPages = 1;
+
+async function fetchCharacters(page = 1) {
+  const name = nameInput.value.trim();
+  const status = statusSelect.value;
+  const species = speciesSelect.value;
+
+  loader.classList.remove("hidden");
+  result.innerHTML = "";
+
+  try {
+    const response = await fetch(
+      `https://rickandmortyapi.com/api/character/?page=${page}&name=${name}&status=${status}&species=${species}`
+    );
+
+    if (!response.ok) {
+      throw new Error("No se encontraron resultados");
+    }
+
+    const data = await response.json();
+
+    totalPages = data.info.pages;
+    currentPage = page;
+
+    if (!data.results.length) {
+      throw new Error("No hay personajes con esos filtros");
+    }
+
+    displayCharacters(data.results);
+    updatePagination();
+
+  } catch (error) {
+    result.innerHTML = `<p style="text-align:center; margin-top:20px;">${error.message}</p>`;
+    pageInfo.textContent = "";
+  } finally {
+    loader.classList.add("hidden");
+  }
+}
+
+function displayCharacters(characters) {
+  result.innerHTML = "";
+
+  characters.forEach(character => {
+    const card = document.createElement("div");
+    card.classList.add("card");
+
+    card.innerHTML = `
+      <img src="${character.image}" alt="${character.name}">
+      <h3>${character.name}</h3>
+      <p><strong>Estado:</strong> ${character.status}</p>
+      <p><strong>Especie:</strong> ${character.species}</p>
+      <p><strong>Origen:</strong> ${character.origin.name}</p>
+    `;
+
+    result.appendChild(card);
+  });
+}
+
+function updatePagination() {
+  pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+
+  prevBtn.disabled = currentPage === 1;
+  nextBtn.disabled = currentPage === totalPages;
+}
+
+searchBtn.addEventListener("click", () => {
+  fetchCharacters(1);
+});
+
+clearBtn.addEventListener("click", () => {
+  nameInput.value = "";
+  statusSelect.value = "";
+  speciesSelect.value = "";
+  result.innerHTML = "";
+  pageInfo.textContent = "";
+});
+
+prevBtn.addEventListener("click", () => {
+  if (currentPage > 1) {
+    fetchCharacters(currentPage - 1);
+  }
+});
+
+nextBtn.addEventListener("click", () => {
+  if (currentPage < totalPages) {
+    fetchCharacters(currentPage + 1);
+  }
+});
+
+fetchCharacters();
