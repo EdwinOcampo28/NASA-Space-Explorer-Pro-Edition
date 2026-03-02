@@ -4,7 +4,7 @@
  * ==========================================
  */
 
-const API_KEY = "TU_API_KEY_AQUI"; // 🔑 Reemplaza con tu API real de NASA
+const API_KEY = "AftCO3h1P2l94Sa6MPCXGyOziLxdUpmygL2CR8st";
 const NASA_APOD_URL = "https://api.nasa.gov/planetary/apod";
 const NASA_SEARCH_URL = "https://images-api.nasa.gov/search";
 const RICK_API_URL = "https://rickandmortyapi.com/api/character";
