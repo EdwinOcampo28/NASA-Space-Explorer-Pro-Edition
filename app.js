@@ -7,7 +7,6 @@
 const API_KEY = "AftCO3h1P2l94Sa6MPCXGyOziLxdUpmygL2CR8st";
 const NASA_APOD_URL = "https://api.nasa.gov/planetary/apod";
 const NASA_SEARCH_URL = "https://images-api.nasa.gov/search";
-const RICK_API_URL = "https://rickandmortyapi.com/api/character";
 
 // Elementos principales
 const gallery = document.getElementById("gallery");
@@ -205,42 +204,6 @@ async function loadRange() {
     renderGallery(data.reverse());
 }
 
-
-/**
- * ==========================================
- * RICK & MORTY
- * ==========================================
- */
-
-const result = document.getElementById("results");
-const loader = document.getElementById("loader");
-const pageInfo = document.getElementById("pageInfo");
-
-let currentPage = 1;
-let totalPages = 1;
-
-async function fetchCharacters(page = 1) {
-    loader?.classList.remove("hidden");
-    result.innerHTML = "";
-
-    try {
-        const response = await fetch(`${RICK_API_URL}?page=${page}`);
-        if (!response.ok) throw new Error("No se encontraron resultados");
-
-        const data = await response.json();
-        totalPages = data.info.pages;
-        currentPage = page;
-
-        displayCharacters(data.results);
-        updatePagination();
-
-    } catch (error) {
-        result.innerHTML = `<p>${error.message}</p>`;
-        pageInfo.textContent = "";
-    } finally {
-        loader?.classList.add("hidden");
-    }
-}
 
 function displayCharacters(characters) {
     result.innerHTML = "";
