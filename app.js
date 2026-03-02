@@ -305,3 +305,65 @@ nextBtn.addEventListener("click", () => {
 });
 
 fetchCharacters();
+
+
+
+async function obtenerAPOD(fecha) {
+    const respuesta = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${API_KEY}&date=${fecha}`);
+    if (!respuesta.ok) throw new Error("Error al obtener la Imagen Astronómica del Día");
+    return await respuesta.json();
+}
+
+async function buscarImagenes(query) {
+    const respuesta = await fetch(`https://images-api.nasa.gov/search?q=${query}&media_type=image`);
+    if (!respuesta.ok) throw new Error("Error al buscar imágenes");
+    return await respuesta.json();
+}
+
+function guardarFavorito(apod) {
+    let favoritos = JSON.parse(localStorage.getItem("favoritos")) || [];
+    favoritos.push(apod);
+    localStorage.setItem("favoritos", JSON.stringify(favoritos));
+}
+
+document.getElementById("load-apod").addEventListener("click", async () => {
+    const fecha = document.getElementById("apod-date").value;
+    try {
+        const data = await obtenerAPOD(fecha);
+        renderizarAPOD(data);
+    } catch (error) {
+        alert(error.message);
+    }
+});
+
+document.getElementById("search-btn").addEventListener("click", async () => {
+    const query = document.getElementById("search-input").value;
+    try {
+        const data = await buscarImagenes(query);
+        renderizarResultados(data);
+    } catch (error) {
+        alert(error.message);
+    }
+});
+
+function renderizarAPOD(data) {
+    const container = document.getElementById("apod-result");
+    container.innerHTML = `
+        <h3>${data.title}</h3>
+        <img src="${data.url}" alt="${data.title}" style="max-width:100%;border-radius:8px;">
+        <p>${data.explanation}</p>
+    `;
+}
+
+function renderizarResultados(data) {
+    const container = document.getElementById("search-results");
+    container.innerHTML = "";
+    data.collection.items.slice(0, 12).forEach(item => {
+        const img = item.links ? item.links[0].href : null;
+        if (img) {
+            const imageElement = document.createElement("img");
+            imageElement.src = img;
+            container.appendChild(imageElement);
+        }
+    });
+}
