@@ -1,192 +1,275 @@
-/**
- * ==========================================
- * CONFIGURACIÓN GLOBAL
- * ==========================================
- */
+const API_KEY = "0ZgZRbrTdPF13UWYjhNhvepjnVMBGG00eaWJN0eT";
+const BASE_URL = "https://api.nasa.gov/planetary/apod";
 
-const API_KEY = "AftCO3h1P2l94Sa6MPCXGyOziLxdUpmygL2CR8st";
-const NASA_APOD_URL = "https://api.nasa.gov/planetary/apod";
-const NASA_SEARCH_URL = "https://images-api.nasa.gov/search";
-
-// Elementos principales
 const gallery = document.getElementById("gallery");
 const statusContainer = document.getElementById("statusContainer");
-const modal = document.getElementById("modal");
-const modalBody = document.getElementById("modalBody");
 
-// Fechas máximas
+let controller;
+let currentPage = 1;
+const ITEMS_PER_PAGE = 9;
+let currentItems = [];
+let allLoadedItems = [];
+let currentImage = null;
+
 const todayStr = new Date().toISOString().split("T")[0];
-document.getElementById("start")?.setAttribute("max", todayStr);
-document.getElementById("end")?.setAttribute("max", todayStr);
+document.getElementById("start").max = todayStr;
+document.getElementById("end").max = todayStr;
 
+function getCacheKey(params) {
+    return `nasa_cache_${params || "today"}`;
+}
 
-/**
- * ==========================================
- * UTILIDADES UI
- * ==========================================
- */
+async function apiCall(params = "") {
+
+    const cacheKey = getCacheKey(params);
+    const cached = localStorage.getItem(cacheKey);
+
+    if (cached) return JSON.parse(cached);
+
+    if (controller) controller.abort();
+    controller = new AbortController();
+
+    showLoading(true);
+
+    try {
+        const response = await fetch(
+            `${BASE_URL}?api_key=${API_KEY}${params}`,
+            { signal: controller.signal }
+        );
+
+        if (!response.ok) throw new Error("Error NASA");
+
+        const data = await response.json();
+        const formatted = Array.isArray(data) ? data : [data];
+
+        localStorage.setItem(cacheKey, JSON.stringify(formatted));
+
+        return formatted;
+
+    } catch (error) {
+        showToast("🚀 Error de conexión");
+        return [];
+    } finally {
+        showLoading(false); // 🔥 Aquí se quita correctamente
+    }
+}
 
 function showToast(msg) {
     const t = document.getElementById("toast");
-    if (!t) return;
     t.innerText = msg;
     t.classList.add("show");
     setTimeout(() => t.classList.remove("show"), 3000);
 }
 
 function showLoading(isLoading) {
-    if (!statusContainer) return;
-    statusContainer.innerHTML = isLoading
-        ? '<div class="loader">🚀 Sincronizando con satélites...</div>'
-        : "";
-}
 
-
-/**
- * ==========================================
- * SERVICIOS NASA
- * ==========================================
- */
-
-async function apiCall(params = "") {
-    showLoading(true);
-
-    try {
-        const response = await fetch(`${NASA_APOD_URL}?api_key=${API_KEY}${params}`);
-        if (!response.ok) throw new Error("Error NASA");
-
-        const data = await response.json();
-        return Array.isArray(data) ? data : [data];
-
-    } catch (error) {
-        showToast("Error conectando con NASA 🚀");
-        console.error(error);
-        return [];
-    } finally {
-        showLoading(false);
+    if (isLoading) {
+        statusContainer.innerHTML = `
+          <div class="space-loader">
+            <div class="planet"></div>
+            <p class="loading-text">
+              Sincronizando con satélites<span class="dots"></span>
+            </p>
+          </div>
+        `;
+    } else {
+        statusContainer.innerHTML = ""; // 🔥 limpia el loader
     }
 }
 
-async function buscarImagenesNASA(query) {
-    const response = await fetch(`${NASA_SEARCH_URL}?q=${query}&media_type=image`);
-    if (!response.ok) throw new Error("Error buscando imágenes NASA");
-    return await response.json();
+function renderGallery(items) {
+    allLoadedItems = items;
+    currentItems = items;
+    currentPage = 1;
+    renderPage();
 }
 
-
-/**
- * ==========================================
- * RENDER GALERÍA
- * ==========================================
- */
-
-function renderGallery(items) {
-    if (!gallery) return;
+function renderPage() {
 
     gallery.innerHTML = "";
 
-    if (!items.length) {
-        gallery.innerHTML =
-            "<p style='text-align:center;grid-column:1/-1;'>No se encontraron imágenes.</p>";
-        return;
-    }
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const paginatedItems = currentItems.slice(start, end);
 
-    items
+    paginatedItems
         .filter(item => item.media_type === "image")
         .forEach(createCard);
+
+    renderPagination();
+}
+
+function renderPagination() {
+
+    const totalPages = Math.ceil(currentItems.length / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return;
+
+    const pagination = document.createElement("div");
+    pagination.style.textAlign = "center";
+    pagination.style.margin = "30px";
+
+    if (currentPage > 1) {
+        const prev = document.createElement("button");
+        prev.className = "btn btn-primary";
+        prev.textContent = "⬅ Anterior";
+        prev.onclick = () => {
+            currentPage--;
+            renderPage();
+        };
+        pagination.appendChild(prev);
+    }
+
+    if (currentPage < totalPages) {
+        const next = document.createElement("button");
+        next.className = "btn btn-primary";
+        next.textContent = "Siguiente ➡";
+        next.onclick = () => {
+            currentPage++;
+            renderPage();
+        };
+        pagination.appendChild(next);
+    }
+
+    gallery.appendChild(pagination);
 }
 
 function createCard(data) {
+
     const card = document.createElement("div");
     card.className = "card";
 
     card.innerHTML = `
-        <div class="card-img-container">
-            <img src="${data.url}" alt="${data.title}" loading="lazy">
-        </div>
+        <img src="${data.url}" alt="${data.title}" loading="lazy">
         <div class="card-content">
             <small>${data.date}</small>
             <h3>${data.title}</h3>
         </div>
     `;
 
-    card.addEventListener("click", () => openModal(data));
+    card.onclick = () => openModal(data);
     gallery.appendChild(card);
 }
 
-
-/**
- * ==========================================
- * MODAL
- * ==========================================
- */
-
 function openModal(data) {
-    const isFavorite = checkIfFavorite(data.date);
-    const imageUrl = data.hdurl || data.url;
+
+    currentImage = data;
+
+    const modalBody = document.getElementById("modalBody");
+    const modal = document.getElementById("modal");
+    const favoriteBtn = document.getElementById("favoriteBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
 
     modalBody.innerHTML = `
-        <small>${data.date}</small>
+        <small style="color:var(--primary)">${data.date}</small>
         <h2>${data.title}</h2>
-        <img src="${imageUrl}" alt="${data.title}">
+        <img src="${data.hdurl || data.url}" style="width:100%; margin:20px 0; border-radius:12px;">
         <p>${data.explanation}</p>
-        <button id="favBtn">
-            ${isFavorite ? "🗑️ Quitar de Favoritos" : "❤️ Guardar en Favoritos"}
-        </button>
-        <a href="${imageUrl}" target="_blank">📥 Descargar HD</a>
     `;
 
-    document.getElementById("favBtn")
-        .addEventListener("click", () => toggleFavorite(data));
+    downloadBtn.href = data.hdurl || data.url;
+
+    let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+
+    favoriteBtn.innerText = favorites.some(fav => fav.date === data.date)
+        ? "⭐ En Favoritos"
+        : "⭐ Agregar a Favoritos";
 
     modal.classList.add("active");
 }
 
-modal?.addEventListener("click", e => {
-    if (e.target === modal) modal.classList.remove("active");
+function closeModal() {
+    document.getElementById("modal").classList.remove("active");
+}
+
+document.getElementById("favoriteBtn").onclick = function () {
+
+    if (!currentImage) return;
+
+    let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+
+    const exists = favorites.some(fav => fav.date === currentImage.date);
+
+    if (!exists) {
+        favorites.push(currentImage);
+        localStorage.setItem("favorites", JSON.stringify(favorites));
+        this.innerText = "⭐ En Favoritos";
+        showToast("Agregado a favoritos ⭐");
+    }
+};
+
+function showFavorites() {
+
+    const favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+
+    if (favorites.length === 0) {
+        showToast("No tienes favoritos aún ⭐");
+        return;
+    }
+
+    renderGallery(favorites);
+    showToast("Mostrando favoritos ⭐");
+}
+
+window.addEventListener("click", function (e) {
+    const modal = document.getElementById("modal");
+    if (e.target === modal) closeModal();
 });
 
 
-/**
- * ==========================================
- * FAVORITOS
- * ==========================================
- */
+const canvas = document.getElementById("stars");
+const ctx = canvas.getContext("2d");
 
-function getFavorites() {
-    return JSON.parse(localStorage.getItem("nasa_favs")) || [];
-}
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-function checkIfFavorite(date) {
-    return getFavorites().some(f => f.date === date);
-}
+let starsArray = [];
 
-function toggleFavorite(data) {
-    let favs = getFavorites();
-    const index = favs.findIndex(f => f.date === data.date);
+class Star {
+  constructor() {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.size = Math.random() * 1.5;
+    this.speed = Math.random() * 0.5;
+  }
 
-    if (index === -1) {
-        favs.push(data);
-        showToast("Guardado en favoritos 🚀");
-    } else {
-        favs.splice(index, 1);
-        showToast("Eliminado de favoritos");
+  update() {
+    this.y += this.speed;
+    if (this.y > canvas.height) {
+      this.y = 0;
+      this.x = Math.random() * canvas.width;
     }
+  }
 
-    localStorage.setItem("nasa_favs", JSON.stringify(favs));
-    modal.classList.remove("active");
+  draw() {
+    ctx.fillStyle = "white";
+    ctx.fillRect(this.x, this.y, this.size, this.size);
+  }
 }
 
-function showFavorites() {
-    renderGallery(getFavorites());
+function initStars() {
+  starsArray = [];
+  for (let i = 0; i < 300; i++) {
+    starsArray.push(new Star());
+  }
 }
 
+function animateStars() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  starsArray.forEach(star => {
+    star.update();
+    star.draw();
+  });
+  requestAnimationFrame(animateStars);
+}
 
-/**
- * ==========================================
- * ACCIONES NASA
- * ==========================================
- */
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  initStars();
+});
+
+initStars();
+animateStars();
 
 async function loadToday() {
     const data = await apiCall();
@@ -198,41 +281,11 @@ async function loadRange() {
     const end = document.getElementById("end").value;
 
     if (!start || !end) return showToast("Faltan fechas");
-    if (start > end) return showToast("Fecha inicio mayor que fin");
+    if (start > end) return showToast("Fecha inicio mayor a fin");
 
     const data = await apiCall(`&start_date=${start}&end_date=${end}`);
     renderGallery(data.reverse());
 }
 
-
-function displayCharacters(characters) {
-    result.innerHTML = "";
-
-    characters.forEach(character => {
-        const card = document.createElement("div");
-        card.classList.add("card");
-
-        card.innerHTML = `
-            <img src="${character.image}" alt="${character.name}">
-            <h3>${character.name}</h3>
-            <p><strong>Estado:</strong> ${character.status}</p>
-            <p><strong>Especie:</strong> ${character.species}</p>
-        `;
-
-        result.appendChild(card);
-    });
-}
-
-function updatePagination() {
-    pageInfo.textContent = `Página ${currentPage} de ${totalPages}`;
-}
-
-
-/**
- * ==========================================
- * INIT
- * ==========================================
- */
-
 loadToday();
-fetchCharacters();
+setupSearch = function(){};
